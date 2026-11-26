@@ -237,6 +237,34 @@ describe("ItwProximityPresentmentScreen", () => {
     ).toHaveLength(1);
   });
 
+  it.each([
+    { name: "light", theme: "light", hasPlate: false },
+    { name: "dark", theme: "dark", hasPlate: true }
+  ] as const)(
+    "should draw the QR code dark on light in $name mode",
+    ({ theme, hasPlate }) => {
+      const component = renderComponent(
+        { machineState: "displayQrCode", qrCodeString: "mock-qr-code-string" },
+        { source: "WALLET_HOME" },
+        theme
+      );
+
+      expect(mockQRCode.mock.calls.at(-1)[0].color).toBe(
+        IOColors.light.text.content.default
+      );
+      expect(component.queryByTestId("qrCodeLightPlate") !== null).toBe(
+        hasPlate
+      );
+      if (hasPlate) {
+        expect(
+          findAllByStyle(component.toJSON(), {
+            backgroundColor: IOColors.light.background.default
+          })
+        ).not.toHaveLength(0);
+      }
+    }
+  );
+
   it("should render the QR code only after the modal transition ends", () => {
     const parentNavigation = { addListener: jest.fn() };
     const navigation = new Proxy(

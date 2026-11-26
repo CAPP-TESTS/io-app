@@ -2,13 +2,15 @@ import {
   Body,
   Icon,
   IOButton,
+  IOColors,
   IODimensions,
   IOSkeleton,
-  useIOColors
+  useIOColors,
+  useIOThemeContext
 } from "@io-app/design-system";
 import { useFocusEffect } from "@react-navigation/native";
 import I18n from "i18next";
-import { useCallback, useMemo } from "react";
+import { PropsWithChildren, useCallback, useMemo } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
 import QRCode, { ShapeOptions } from "react-native-qrcode-skia";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
@@ -55,12 +57,23 @@ const QR_CODE_SIZE =
   IODimensions.padding.screen.default * 2 - // Subtracting the horizontal screen padding (both sides)
   ITW_BRANDED_BOX_PADDING * 2; // Subtracting the branded box padding (both sides)
 
+/**
+ * Dark on light in both modes, as `QrCodeImage`: verifier apps may not read an
+ * inverted QR code. In dark mode the box is dark, so the code sits on a light
+ * plate, with the same margin the light box gives it in light mode
+ */
+const QR_CODE_COLOR = IOColors.light.text.content.default;
+const QR_CODE_PLATE_COLOR = IOColors.light.background.default;
+const QR_CODE_PLATE_PADDING = ITW_BRANDED_BOX_PADDING;
+
 type Props = {
   source?: ItwProximityQrCodeTracking["source"];
 };
 
 export const ItwProximityQrCodeImage = ({ source }: Props) => {
   const colors = useIOColors();
+  const { themeType } = useIOThemeContext();
+  const isDarkMode = themeType === "dark";
   const machineRef = ItwProximityMachineContext.useActorRef();
   const isModalOpened = useHasModalTransitionEnded();
 
@@ -137,16 +150,22 @@ export const ItwProximityQrCodeImage = ({ source }: Props) => {
           accessible={true}
           entering={FadeIn.duration(QR_CODE_FADE_DURATION)}
         >
-          <QRCode
-            color={colors.text.content.default}
-            errorCorrectionLevel="H"
-            logo={QR_CODE_LOGO}
-            logoAreaBorderRadius={8}
-            logoAreaSize={88}
-            shapeOptions={QR_CODE_SHAPE_OPTIONS}
-            size={QR_CODE_SIZE}
-            value={qrCodeString}
-          />
+          <QrCodePlate visible={isDarkMode}>
+            <QRCode
+              color={QR_CODE_COLOR}
+              errorCorrectionLevel="H"
+              logo={QR_CODE_LOGO}
+              logoAreaBorderRadius={8}
+              logoAreaSize={88}
+              shapeOptions={QR_CODE_SHAPE_OPTIONS}
+              size={
+                isDarkMode
+                  ? QR_CODE_SIZE - QR_CODE_PLATE_PADDING * 2
+                  : QR_CODE_SIZE
+              }
+              value={qrCodeString}
+            />
+          </QrCodePlate>
         </Animated.View>
       ) : (
         <Animated.View
@@ -160,6 +179,22 @@ export const ItwProximityQrCodeImage = ({ source }: Props) => {
     </View>
   );
 };
+
+/** Light plate behind the QR code, when the box around it is dark */
+const QrCodePlate = ({
+  visible,
+  children
+}: PropsWithChildren<{ visible: boolean }>) =>
+  visible ? (
+    <View
+      style={[styles.qrCodePlate, { backgroundColor: QR_CODE_PLATE_COLOR }]}
+      testID="qrCodeLightPlate"
+    >
+      {children}
+    </View>
+  ) : (
+    children
+  );
 
 type StatusBoxProps = {
   action?: React.ReactNode;
@@ -192,6 +227,11 @@ const styles = StyleSheet.create({
   qrCodeSlot: {
     width: QR_CODE_SIZE,
     height: QR_CODE_SIZE
+  },
+  qrCodePlate: {
+    padding: QR_CODE_PLATE_PADDING,
+    borderRadius: 16,
+    borderCurve: "continuous"
   },
   // Matches IOSkeleton's first pulse frame, so the swap is seamless
   staticSkeleton: {
